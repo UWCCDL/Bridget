@@ -37,7 +37,7 @@ study_cond <- testData %>%
 wrong_guess <- testData %>% 
   filter(phase == "learn") %>% 
   filter(correct != 1) %>% 
-  select(participant, cue)
+  dplyr::select(participant, cue)
 
 clean_test <- left_join(wrong_guess, testData, by = c("participant", "cue")) %>% 
   filter(phase == "test") %>% 
@@ -118,12 +118,12 @@ studyItems <- lfmData %>%
 correct_guess <- lfmData %>% 
   filter(phase == "learn") %>% 
   filter(correct == 1) %>% 
-  select(participant, cue)
+  dplyr::select(participant, cue)
 
 guess <- lfmData %>% 
   filter(phase == "learn") %>% 
   filter(correct != 1) %>% 
-  select(participant, cue)
+  dplyr::select(participant, cue)
 
 cleanLFM <- left_join(guess, lfmData, by = c("participant", "cue")) %>% 
   filter(phase == "test") %>% 
@@ -234,12 +234,12 @@ Make kernel density plot
 ```{r}
 clean_study <- clean_lfm %>% 
   filter(condition == "study") %>% 
-  select(performance)
+  dplyr::select(performance)
 study <- clean_study$performance
 
 clean_error <- clean_lfm %>% 
   filter(condition == "error") %>% 
-  select(performance)
+  dplyr::select(performance)
 error <- clean_error$performance
 
 study_dens <- density(study)
