@@ -253,14 +253,22 @@ legend(0.1, 2.5, legend=c("Study", "Error"), col=c("blue", "red"), lty=1, cex=0.
 
 Start stat analyses:
 ```{r}
-studyData <- subset(clean_lfm,  condition == "study", performance,
+study <- subset(clean_lfm,  condition == "study", performance,
                  drop = TRUE)
-errorData <-subset(clean_lfm,  condition == "error", performance,
+error <-subset(clean_lfm,  condition == "error", performance,
                  drop = TRUE)
 
-pd <- paired(studyData, errorData)
-plot(pd, type = "profile") + theme_bw()
+pd <- paired(error, study)
+p <- plot(pd, type = "profile") + theme_bw()
 
-result <- t.test(studyData, errorData, paired =TRUE)
+ggplot(clean_lfm, aes(x = condition, y = performance, color = condition)) +
+  geom_boxplot() +
+  ggtitle("Comparing Final Test Performance Between Conditions") +
+  ylab("Accuracy") +
+  scale_color_manual(values=c("tomato4","darkseagreen4")) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+
+result <- t.test(error, study, paired =TRUE)
 result
 ```

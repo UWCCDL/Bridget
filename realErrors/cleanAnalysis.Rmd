@@ -1,0 +1,386 @@
+---
+title: "Clean Analysis"
+output: html_document
+date: "2023-01-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(ggplot2)
+library(PairedData)
+library(gridExtra)
+library(grid)
+library(cowplot)
+
+# SlimStampen
+#install.packages("devtools") # Install SlimStampen packages. Instructions on https://github.com/VanRijnLab/SlimStampeRData
+library(devtools)
+# devtools::install_github("VanRijnLab/SlimStampeRData",
+                       # build_vignettes = TRUE,
+                       # dependencies = TRUE,
+                       # force = TRUE) 
+# The console will show a prompt asking whether all packages should be updated. Select option 1 (by typing 1 and then pressing enter), this will update all packages.
+vignette("SlimStampeRVignette")
+library(SlimStampeRData)
+```
+
+Load ADRC data:
+```{r}
+load("cleandata.Rdata")
+lessons <- unique(cleandata$lesson_order)
+print(lessons)
+textLessons <- cleandata %>% 
+  filter(stimcat == "Text") %>% 
+  pull(lesson_order) %>% 
+  unique()
+
+print(textLessons)
+```
+
+Load neurostim data:
+```{r, echo=FALSE, results= 'hide'}
+
+# Load data
+load("SlimStampen_2022-08-14copy.RData")
+
+# Filter for just neurostim 
+groups <- read_csv("groups.csv", show_col_types = FALSE)
+data %>% 
+  filter(userId %in% groups$userId) -> data
+
+# Calculate fact rep, activation, and alpha 
+MAX_ALPHA=0.5
+slimdata <- data %>%
+  calculate_repetition() %>%
+  calculate_alpha_and_activation(maxAlpha=MAX_ALPHA)
+
+```
+
+Clean both data sets to select lessons and variables and order by presentation (repetition)
+```{r}
+ADRCdata <- cleandata %>% 
+  filter(lesson_order == "Swahili 1" |
+         lesson_order == "Swahili2" |
+         lesson_order == "US Towns 1")  %>% 
+  filter(clinicalStatus == "HC") %>% 
+  select(userId, factId, repetition, correct) %>% 
+  mutate(itemId = paste(userId, factId, sep="-")) %>% 
+  group_by(itemId) %>% 
+  arrange(repetition, .by_group = TRUE) %>% 
+  mutate(type = "ADRC")
+
+NSdata <- slimdata %>% 
+  # filter(lessonTitle == "Swahili 1" |
+  #       lessonTitle == "European Capitals 1") %>% 
+  mutate(userId = as.character(userId)) %>% 
+  select(userId, factId, repetition, correct) %>% 
+  mutate(itemId = paste(userId, factId, sep="-")) %>% 
+  group_by(itemId) %>% 
+  arrange(repetition, .by_group = TRUE) %>% 
+  mutate(type = "NS")
+
+dataClean <- rbind(ADRCdata, NSdata)
+
+```
+
+Filter the data to select only items where at least 1 error has been committed:
+```{r}
+errorData <- dataClean %>% 
+  mutate(error = case_when(correct == FALSE ~ 1,
+                           correct == TRUE ~ 0)) %>% 
+  group_by(itemId) %>% 
+  summarize(
+    totalError = sum(error)
+  ) %>% 
+  filter(totalError >= 1) %>% 
+  left_join(dataClean, by = "itemId")
+```
+
+Add in a condition: whether or not an error was made on the 2nd presentation (1 rep) of the item
+This is the presentation after the study and immediate test portion so reflects the best opportunity for an early error
+```{r}
+conditions <- errorData %>% 
+  filter(repetition == 1) %>% 
+  mutate(condition = case_when(correct == TRUE ~ "No error",
+                               correct == FALSE ~ "Error")) %>% 
+  select(itemId, condition)
+errorCond <- left_join(conditions, errorData, by = "itemId")
+
+```
+
+Filter out people who don't have both conditions:
+```{r}
+both <- errorCond %>% 
+  group_by(userId) %>% 
+  summarize(count = n_distinct(condition)) %>% 
+  filter(count == 2) %>% 
+  pull(userId)
+
+print(both)
+```
+
+Make a plot
+```{r message=FALSE}
+plotData <- errorCond %>% 
+  filter(userId %in% both) %>% 
+  mutate(correct = case_when(correct == FALSE ~ 0,
+                           correct == TRUE ~ 1)) %>% 
+  select(userId, condition, repetition, correct) %>% 
+  group_by(userId, condition, repetition) %>%
+  summarize(
+    performance = sum(correct) / n()
+  ) %>% 
+  mutate("userCond" = paste(userId, condition, sep="-"))
+
+ggplot(plotData) +
+  geom_point(mapping = aes(x = repetition, y = performance, color = condition), position = "jitter", alpha = 0.8) + 
+  geom_smooth(method= "lm", mapping = aes(x = repetition, y = performance, color = condition, group = userCond), se=F) +
+  scale_color_manual(values=c("tomato4","darkseagreen4")) +
+  ylab("Accuracy") +
+  ggtitle("Overall Performance by Participant") +
+  theme(plot.title = element_text(hjust = 0.5, face= "bold"))
+```
+Break into three portions and test signficance:
+```{r}
+compareData <- plotData %>% 
+  mutate(condition = case_when(condition == "No error" ~ "noError",
+                               condition == "Error" ~ "error")) %>% 
+  pivot_wider(
+    id_cols = c(userId, repetition),
+    names_from = condition,
+    values_from = performance
+  ) %>% 
+  filter(repetition != 0 &
+         repetition != 1) %>% 
+  mutate(difference = error - noError) %>% 
+  na.omit()
+
+quality <- compareData %>% 
+  group_by(userId) %>% 
+  summarize(
+    avg = (mean(error) + mean(noError)) / 2
+  )
+
+# Because 69425 avg accuracy <50%, we remove them from the data set
+compareData <- compareData %>% 
+  filter(userId != 69425)
+
+# calculate diff in performance immediately after error
+rep2_3 <- compareData %>% 
+  filter(repetition %in% c(2,3)) 
+
+test23 <- rep2_3 %>% 
+  group_by(userId) %>% 
+  summarize(
+    error = mean(error),
+    noError = mean(noError)
+  )
+
+plot23 <- rep2_3 %>% 
+  pivot_longer(
+    cols = c(error, noError),
+    names_to = "condition"
+  ) %>% 
+  mutate(condition = case_when(condition == "error" ~ "Error",
+                               condition == "noError" ~ "No Error")) %>% 
+  mutate(repetition = as.factor(repetition)) %>% 
+  mutate(userCond = paste(userId, condition, sep="-"))
+
+rep4_6 <- compareData %>% 
+  filter(repetition %in% c(4,5, 6)) 
+
+test46 <- rep4_6 %>% 
+  group_by(userId) %>% 
+  summarize(
+    error = mean(error),
+    noError = mean(noError)
+  )
+
+plot46 <- rep4_6 %>% 
+  pivot_longer(
+    cols = c(error, noError),
+    names_to = "condition"
+  ) %>% 
+  mutate(condition = case_when(condition == "error" ~ "Error",
+                               condition == "noError" ~ "No Error")) %>% 
+  mutate(repetition = as.factor(repetition)) %>% 
+  mutate(userCond = paste(userId, condition, sep="-"))
+
+rep7_max <- compareData %>% 
+  filter(repetition > 6) 
+
+test7max <- rep7_max %>% 
+  group_by(userId) %>% 
+  summarize(
+    error = mean(error),
+    noError = mean(noError)
+  )
+
+plot7max <- rep7_max %>% 
+  pivot_longer(
+    cols = c(error, noError),
+    names_to = "condition"
+  ) %>% 
+  mutate(condition = case_when(condition == "error" ~ "Error",
+                               condition == "noError" ~ "No Error")) %>% 
+  mutate(repetition = as.factor(repetition)) %>% 
+  mutate(userCond = paste(userId, condition, sep="-"))
+
+```
+
+```{r message=FALSE}
+plot2_3A <- ggplot(plot23, alpha = 0.8) +
+  geom_point(mapping = aes(x = repetition, y = value, color = condition, group = userId)) +
+  geom_smooth(method= "lm", mapping = aes(x = repetition, y = value, color = condition, group = userCond), se=F) +
+  labs(y = "Accuracy", x = "Fact Presentation") +
+  scale_y_continuous(limits=c(0, 1.1), breaks=c(0, 0.25, 0.5, 0.75, 1)) +
+  scale_color_manual(values=c("tomato4","darkseagreen4"))
+
+plot4_6A <- ggplot(plot46, alpha = 0.8) +
+  geom_point(mapping = aes(x = repetition, y = value, color = condition, group = userId)) +
+  geom_smooth(method= "lm", mapping = aes(x = repetition, y = value, color = condition, group = userCond), se=F) +
+  labs(y = "Accuracy", x = "Fact Presentation") +
+  scale_y_continuous(limits=c(0, 1.1), breaks=c(0, 0.25, 0.5, 0.75, 1)) +
+  theme(legend.position="none") +
+  scale_color_manual(values=c("tomato4","darkseagreen4"))
+
+plot7_maxA <- ggplot(plot7max, alpha = 0.8) +
+  geom_point(mapping = aes(x = repetition, y = value, color = condition, group = userId)) +
+  geom_smooth(method= "lm", mapping = aes(x = repetition, y = value, color = condition, group = userCond), se=F) +
+  labs(y = "Accuracy", x = "Fact Presentation") +
+  scale_y_continuous(limits=c(0, 1.1), breaks=c(0, 0.25, 0.5, 0.75, 1)) +
+  theme(legend.position="none") +
+  scale_color_manual(values=c("tomato4","darkseagreen4"))
+
+# save legend
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+legend <- get_legend(plot2_3A)
+plot2_3A <- plot2_3A + theme(legend.position="none")
+
+grid.arrange(plot2_3A, plot4_6A, plot7_maxA, legend, ncol=2, top=textGrob("Performance Across Repetitions"))
+
+```
+
+Stats test for Reps 2-3
+```{r}
+# Rep 2-3
+error23 <- test23$error
+noError23 <- test23$noError
+pd23 <- paired(error23, noError23)
+p23 <- plot(pd23, main = "Repetitions 2-3", type = "profile") + theme_bw()
+p23
+
+
+box23 <- test23 %>% 
+  pivot_longer(
+    cols = c(error, noError),
+    names_to = "condition"
+  )
+
+meanStd23 <- box23 %>% 
+  group_by(condition) %>% 
+  summarize(
+    average = mean(value),
+    std = sd(value)
+  )
+
+p23 <- ggplot(box23, aes(x = condition, y = value, color = condition)) +
+  geom_boxplot() +
+  ggtitle("(A) Repetitions 2-3") +
+  ylab("") + 
+  scale_color_manual(values=c("tomato4","darkseagreen4")) +
+  theme(plot.title = element_text(hjust = 0, size=10))
+p23
+
+legend2 = get_legend(p23)
+p23 <- p23 + theme(legend.position = "none")
+
+result23 <- t.test(error23, noError23, paired =TRUE)
+result23
+```
+
+Stats test for Reps 4-6
+```{r}
+?plot
+
+error46 <- test46$error
+noError46 <- test46$noError
+pd46 <- paired(error46, noError46)
+p46 <- plot(pd46, type = "profile") + theme_bw()
+p46
+
+box46 <- test46 %>% 
+  pivot_longer(
+    cols = c(error, noError),
+    names_to = "condition"
+  )
+
+meanStd46 <- box46 %>% 
+  group_by(condition) %>% 
+  summarize(
+    average = mean(value),
+    std = sd(value)
+  )
+
+p46 <- ggplot(box46, aes(x = condition, y = value, color = condition)) +
+  geom_boxplot() +
+  ggtitle("(B) Repetitions 4-6") +
+  ylab("") + 
+  scale_color_manual(values=c("tomato4","darkseagreen4")) +
+  theme(plot.title = element_text(hjust = 0, size=10), legend.position = "none")
+p46
+
+result46 <- t.test(error46, noError46, paired =TRUE)
+result46
+```
+
+Stats test for Reps 7max
+```{r}
+error7max <- test7max$error
+noError7max <- test7max$noError
+pd7max <- paired(error7max, noError7max)
+p7max <- plot(pd7max, type = "profile") + theme_bw()
+p7max
+
+box7max <- test7max %>% 
+  pivot_longer(
+    cols = c(error, noError),
+    names_to = "condition"
+  )
+
+meanStd7max <- box7max %>% 
+  group_by(condition) %>% 
+  summarize(
+    average = mean(value),
+    std = sd(value)
+  )
+
+p7max <- ggplot(box7max, aes(x = condition, y = value, color = condition)) +
+  geom_boxplot() +
+  ggtitle("(C) Repetitions 7+") +
+  ylab("") + 
+  scale_color_manual(values=c("tomato4","darkseagreen4")) +
+  theme(plot.title = element_text(hjust = 0, size=10), legend.position = "none")
+p7max
+
+result7max <- t.test(error7max, noError7max, paired =TRUE)
+result7max
+```
+
+
+Group paired plots:
+```{r}
+grid.arrange(p23, p46, p7max, legend2, nrow = 2,
+                         top = textGrob("Paired Comparisons of Conditions Across Testing Phases", vjust = 1, gp = gpar(fontface = "bold", cex = 1)),
+                         left = textGrob("Accuracy", rot = 90, vjust = 1))
+
+```
