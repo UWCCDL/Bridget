@@ -62,11 +62,11 @@ slimdata <- data %>%
 Clean both data sets to select lessons and variables and order by presentation (repetition)
 ```{r}
 ADRCdata <- cleandata %>% 
-  filter(lesson_order == "Swahili 1" |
-         lesson_order == "Swahili2" |
-         lesson_order == "US Towns 1")  %>% 
+  #filter(lesson_order == "Swahili 1" |
+  #       lesson_order == "Swahili2" |
+  #       lesson_order == "US Towns 1")  %>% 
   filter(clinicalStatus == "HC") %>% 
-  select(userId, factId, repetition, correct) %>% 
+  select(userId, factId, repetition, correct, alpha) %>% 
   mutate(itemId = paste(userId, factId, sep="-")) %>% 
   group_by(itemId) %>% 
   arrange(repetition, .by_group = TRUE) %>% 
@@ -76,13 +76,13 @@ NSdata <- slimdata %>%
   # filter(lessonTitle == "Swahili 1" |
   #       lessonTitle == "European Capitals 1") %>% 
   mutate(userId = as.character(userId)) %>% 
-  select(userId, factId, repetition, correct) %>% 
+  select(userId, factId, repetition, correct, alpha) %>% 
   mutate(itemId = paste(userId, factId, sep="-")) %>% 
   group_by(itemId) %>% 
   arrange(repetition, .by_group = TRUE) %>% 
   mutate(type = "NS")
 
-dataClean <- rbind(ADRCdata, NSdata)
+dataClean <- NSdata
 
 ```
 
@@ -124,6 +124,63 @@ print(both)
 
 Make a plot
 ```{r message=FALSE}
+sof <- errorCond %>% 
+  filter(userId %in% both) %>% 
+  mutate(correct = case_when(correct == FALSE ~ 0,
+                           correct == TRUE ~ 1)) %>% 
+  select(itemId, userId, condition, repetition, alpha) %>% 
+  group_by(userId, condition, repetition) %>%
+  summarize(
+    avgSoF = sum(alpha) / n()
+  ) %>% 
+  mutate("userCond" = paste(userId, condition, sep="-"))
+
+ggplot(sof) +
+  geom_point(mapping = aes(x = repetition, y = avgSoF, color = condition), alpha = 0.7) + 
+  geom_line(mapping = aes(x = repetition, y = avgSoF, color = condition, group = userCond), alpha = 0.7) +
+  ylab("SoF") + 
+  xlab("Repetition") +
+  ggtitle("Speed of Forgetting Throughout the Lesson") +
+  theme(plot.title = element_text(hjust = 0.5, size=15))
+```
+```{r}
+#Test rep2
+lastrep <- errorCond %>% 
+  filter(userId %in% both) %>% 
+  group_by(userId, condition, repetition) %>% 
+  summarize(
+    avg_alpha = mean(alpha)
+  ) %>% 
+  group_by(userId, condition) %>% 
+  filter(repetition == max(repetition)) 
+
+testRep <- lastrep %>% 
+  pivot_wider(
+    id_cols = c(userId),
+    names_from = condition,
+    values_from = avg_alpha
+  )
+
+lastRepTest <- t.test(testRep$Error, testRep$`No error`, paired=TRUE, conf.level = 0.90)
+lastRepTest
+
+meanLast <- lastrep %>% 
+  group_by(condition) %>% 
+  summarize(
+    mean = mean(avg_alpha),
+    std = sd(avg_alpha)
+  )
+
+sofPlot <- ggplot(lastrep, aes(x = condition, y = avg_alpha, color = condition)) +
+  geom_boxplot() +
+  ggtitle("Speed of Forgetting Between Conditions") +
+  ylab("SoF") + 
+  xlab("Condition") +
+  theme(plot.title = element_text(hjust = 0.5, size=15))
+sofPlot
+```
+
+```{r}
 plotData <- errorCond %>% 
   filter(userId %in% both) %>% 
   mutate(correct = case_when(correct == FALSE ~ 0,
@@ -135,13 +192,39 @@ plotData <- errorCond %>%
   ) %>% 
   mutate("userCond" = paste(userId, condition, sep="-"))
 
-ggplot(plotData) +
-  geom_point(mapping = aes(x = repetition, y = performance, color = condition), position = "jitter", alpha = 0.8) + 
-  geom_smooth(method= "lm", mapping = aes(x = repetition, y = performance, color = condition, group = userCond), se=F) +
-  scale_color_manual(values=c("tomato4","darkseagreen4")) +
-  ylab("Accuracy") +
-  ggtitle("Overall Performance by Participant") +
-  theme(plot.title = element_text(hjust = 0.5, face= "bold"))
+
+accuracy <- plotData %>% 
+  group_by(userId, condition) %>% 
+  filter(repetition == max(repetition)) 
+
+accurCol <- accuracy %>% 
+  group_by(condition) %>% 
+  summarize(
+    mean = mean(performance),
+    std = sd(performance)
+  ) %>% 
+  mutate(lower = mean - std) %>% 
+  mutate(upper = mean + std)
+
+accuracyPlot <-  ggplot() +
+  geom_col(data = accurCol, aes(x = condition, y = mean, fill = condition), width = 0.5) +
+  geom_errorbar(data = accurCol, aes(x = condition, ymin = lower, ymax = upper), width=.05,
+                 position=position_dodge(.9)) +
+  ggtitle("Accuracy Between Conditions") +
+  ylab("Accuracy") + 
+  xlab("Condition") +
+  theme(plot.title = element_text(hjust = 0.5, size=15))
+accuracyPlot
+
+accurData <- accuracy %>% 
+  pivot_wider(
+    id_cols = c(userId),
+    names_from = condition,
+    values_from = performance
+  )
+
+accuracyTest <- t.test(accurData$Error, accurData$`No error`, paired=TRUE)
+accuracyTest
 ```
 Break into three portions and test signficance:
 ```{r}
@@ -165,8 +248,8 @@ quality <- compareData %>%
   )
 
 # Because 69425 avg accuracy <50%, we remove them from the data set
-compareData <- compareData %>% 
-  filter(userId != 69425)
+# compareData <- compareData %>% 
+#  filter(userId != 69425)
 
 # calculate diff in performance immediately after error
 rep2_3 <- compareData %>% 

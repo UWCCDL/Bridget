@@ -265,10 +265,51 @@ ggplot(clean_lfm, aes(x = condition, y = performance, color = condition)) +
   geom_boxplot() +
   ggtitle("Comparing Final Test Performance Between Conditions") +
   ylab("Accuracy") +
-  scale_color_manual(values=c("tomato4","darkseagreen4")) +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  theme(plot.title = element_text(hjust = 0.5, size=15))
 
 
 result <- t.test(error, study, paired =TRUE)
 result
+```
+
+
+Look at reaction times:
+```{r}
+reactionTest <- clean_lfm %>% 
+  pivot_wider(
+    id_cols = c(participant),
+    names_from = condition,
+    values_from = c(avgRT)
+  )
+
+reactionResult <- t.test(reactionTest$error, reactionTest$study, paired=TRUE)
+reactionResult
+```
+
+```{r}
+reaction <- clean_lfm %>% 
+  pivot_wider(
+    id_cols = c(participant),
+    names_from = condition,
+    values_from = c(performance, avgRT)
+  ) %>% 
+  mutate(accurDiff = performance_error - performance_study) %>% 
+  mutate(RTDiff = avgRT_error - avgRT_study) %>% 
+  mutate(lfm = case_when(accurDiff > 0 ~ TRUE,
+                         accurDiff <= 0 ~ FALSE))
+
+# plot both and see relationship 
+ggplot(reaction) +
+  geom_point(mapping = aes(x = performance_error, y = avgRT_error), color="blue") +
+  geom_smooth(mapping = aes(x = performance_error, y = avgRT_error), method = "lm", color="blue") +
+  geom_point(mapping = aes(x = performance_study, y = avgRT_study), color="red") +
+  geom_smooth(mapping = aes(x = performance_study, y = avgRT_study), method = "lm", color = "red")
+
+ggplot(reaction) +
+  geom_point(mapping = aes(x = accurDiff, y = RTDiff, color = lfm)) +
+  geom_smooth(mapping = aes(x = accurDiff, y = RTDiff), method = "lm")
+
+resultsCor <- cor(reaction$performance_study, reaction$avgRT_study)
+resultsCor
+
 ```
