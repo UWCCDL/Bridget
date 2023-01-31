@@ -387,8 +387,10 @@ cleandata_summary <- cleandata_agg %>% group_by(condition) %>%
   summarise(Accuracy = mean(Accuracy))
 
 ggplot(cleandata_agg, aes(x=condition, y=Accuracy, color=condition)) +
+  geom_line(color="grey", aes(group=participant), size=0.1) +
   geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
   scale_color_aaas() +
+
   ggtitle("Mean Differences in Accuracy") +
   xlab("Condition") +
   stat_summary(geom="point", fun.data = "mean_se", size=3) +
@@ -414,7 +416,7 @@ cleandata_rt <- cleandata %>% filter(correct == 1)
 Then, we are going tu run another mixed level model, but this time we are going to include a participant-level random _slope_, which accounts for the fact that different participants might benefit to different extends from the mean effect of the condition. Response times have a complicated relationship to accuracy, since they are the sum of retrieval times and perceptual-motor non-retrieval times.
 
 ```{r}
-rt_model <- lmer(log(rt) ~ condition # Fixed effect of condition 
+rt_model <- lmer(rt ~ condition # Fixed effect of condition 
                  + (1|participant)   # Random intercept of participant
                  + (0 + condition|participant),  # Random slope for participant 
                  cleandata_rt)
@@ -423,8 +425,7 @@ rt_model <- lmer(log(rt) ~ condition # Fixed effect of condition
 The results are here:
 
 ```{r}
-rt_model %>%
-  tidy()
+summary(rt_model) 
 ```
 
 And here is a nicer table formatting.
@@ -448,6 +449,8 @@ cleandata_rt_summary <- cleandata_rt_agg %>% group_by(condition) %>%
   summarise(RT = mean(RT))
 
 ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
+  geom_line(color="grey", aes(group=participant), size=0.1) +
+
   geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
   scale_color_aaas() +
   ggtitle("Mean Differences in Response Times") +
