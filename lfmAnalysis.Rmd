@@ -11,6 +11,11 @@ library(tidyr)
 library(readxl)
 library(ggplot2)
 library(PairedData)
+
+library(lme4)
+library(broom.mixed)
+library(kableExtra)
+library(ggsci)
 ```
 
 Load the test data set that includes 4 ppts:
@@ -272,6 +277,7 @@ result <- t.test(error, study, paired =TRUE)
 result
 ```
 
+## Response Times
 
 Look at reaction times:
 ```{r}
@@ -312,4 +318,143 @@ ggplot(reaction) +
 resultsCor <- cor(reaction$performance_study, reaction$avgRT_study)
 resultsCor
 
+```
+
+
+## Mixed Linear Models Analysis
+
+Let's analyze the data using mixed linear models. First, let's look at the distribution of response times to find if there are any obvious outliers:
+
+```{r}
+ggplot(cleanLFM, aes(x=rt)) +
+  geom_histogram(bins=70, color="white") +
+  xlab("Response Times (ms)") +
+  ggtitle("Distributuion of Response Times") +
+  ylab("Number") +
+  geom_vline(aes(xintercept=15000),
+             color="red", linetype="dashed") + 
+  annotate("text", x = 15000, y = 1000, label = "Cutoff", hjust=-0.25, color="red") +
+  theme_minimal()
+```
+
+There are clearly some trials, from a few participants, that take a huge amount of time, up to 96 seconds. We do not want our data contaminated by trials in which participants looked at their phones, so we are going to use a cutoff of 15000 ms. We are also going to remove extremely fast trial, i.e. trials whose RT is greater than 200 ms.
+
+```{r}
+cleandata <- cleanLFM %>% filter(rt > 200, rt < 15000)
+```
+
+Finally, we are going to rename the conditions to make sure we are using meaningful labels, and make sure that correct is between 0 and 1.
+
+```{r}
+cleandata <- cleandata %>% 
+  mutate(condition = replace(condition, condition == 1, "error")) %>% 
+  mutate(condition = replace(condition, condition == 2, "study")) %>%
+  mutate(correct = replace(correct, correct == 2, 0))
+```
+
+
+### Settng up a linear mixed model for Accuracy
+
+Linear mixed models are great because they naturally account for variability and individual differences. We are going to first analyze accuracies, which are encoded in the `correct` column of the `cleandata` dataframe.
+
+In our mixed linear models, we are going to model responses are arising from a combination of factors. First, we are going to model a fixed effect of _condition_, i.e., whether the particular response was given to an item in the _Error_ or _Study_ condition. Then, we are going to add a participant-level random _intercept_, which accounts for the fact that different participants have different baseline accuracies. And, finally, we are going to make sure that the model uses a binomial distribution, because accuracy data is binary (correct or not).
+
+```{r}
+acc_model <- glmer(correct ~ condition # Fixed effect of condition
+                   + (1|participant),  # Interface for participant
+                   family=binomial, 
+                   cleandata)
+```
+
+And the results are shown here:
+
+```{r}
+acc_model %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Visualizing the data
+
+And here is a quick visualization:
+
+```{r, fig.width=5, fig.height=5}
+cleandata_agg <- cleandata %>% group_by(participant, condition) %>%
+  summarise(Accuracy = mean(correct))
+
+cleandata_summary <- cleandata_agg %>% group_by(condition) %>%
+  summarise(Accuracy = mean(Accuracy))
+
+ggplot(cleandata_agg, aes(x=condition, y=Accuracy, color=condition)) +
+  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  scale_color_aaas() +
+  ggtitle("Mean Differences in Accuracy") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  geom_text(data=cleandata_summary, 
+            aes(x=condition, 
+                y=Accuracy + 0.05, 
+                label=paste(round(Accuracy*100, 2), "%")), 
+            hjust= -0.1) +
+
+  theme_minimal()
+```
+
+
+### Response Times
+
+To analyze response times, we are going to first include only correct trials
+
+```{r}
+cleandata_rt <- cleandata %>% filter(correct == 1)
+```
+
+Then, we are going tu run another mixed level model, but this time we are going to include a participant-level random _slope_, which accounts for the fact that different participants might benefit to different extends from the mean effect of the condition. Response times have a complicated relationship to accuracy, since they are the sum of retrieval times and perceptual-motor non-retrieval times.
+
+```{r}
+rt_model <- lmer(log(rt) ~ condition # Fixed effect of condition 
+                 + (1|participant)   # Random intercept of participant
+                 + (0 + condition|participant),  # Random slope for participant 
+                 cleandata_rt)
+```
+
+The results are here:
+
+```{r}
+rt_model %>%
+  tidy()
+```
+
+And here is a nicer table formatting.
+
+```{r}
+rt_model %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Visualizing the data
+
+And here is a visualization:
+
+```{r, fig.width=5, fig.height=5}
+cleandata_rt_agg <- cleandata_rt %>% group_by(participant, condition) %>%
+  summarise(RT = mean(rt))
+
+cleandata_rt_summary <- cleandata_rt_agg %>% group_by(condition) %>%
+  summarise(RT = mean(RT))
+
+ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
+  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  scale_color_aaas() +
+  ggtitle("Mean Differences in Response Times") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  geom_text(data=cleandata_rt_summary, 
+            aes(x=condition, y=RT + 300, label=paste(round(RT), "ms")), hjust= -0.1) +
+  theme_minimal()
 ```
