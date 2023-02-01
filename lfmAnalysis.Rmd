@@ -399,7 +399,7 @@ ggplot(cleandata_agg, aes(x=condition, y=Accuracy, color=condition)) +
             aes(x=condition, 
                 y=Accuracy + 0.05, 
                 label=paste(round(Accuracy*100, 2), "%")), 
-            hjust= -0.1) +
+            hjust= c(1.1, -0.1)) +
 
   theme_minimal()
 ```
