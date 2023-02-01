@@ -397,9 +397,9 @@ ggplot(cleandata_agg, aes(x=condition, y=Accuracy, color=condition)) +
   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
   geom_text(data=cleandata_summary, 
             aes(x=condition, 
-                y=Accuracy + 0.05, 
+                y=Accuracy, 
                 label=paste(round(Accuracy*100, 2), "%")), 
-            hjust= c(1.1, -0.1)) +
+            hjust= c(1.2, -0.2)) +
 
   theme_minimal()
 ```
@@ -458,6 +458,6 @@ ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
   stat_summary(geom="point", fun.data = "mean_se", size=3) +
   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
   geom_text(data=cleandata_rt_summary, 
-            aes(x=condition, y=RT + 300, label=paste(round(RT), "ms")), hjust= c(1.1, -0.1)) +
+            aes(x=condition, y=RT, label=paste(round(RT), "ms")), hjust= c(1.2, -0.2)) +
   theme_minimal()
 ```
