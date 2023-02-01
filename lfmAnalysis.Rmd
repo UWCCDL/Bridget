@@ -425,7 +425,7 @@ rt_model <- lmer(rt ~ condition # Fixed effect of condition
 The results are here:
 
 ```{r paged.print=TRUE}
-summary(rt_model)$coefficients %>% kable() %>% kable_styling(bootstrap_options = c("hover", "striped"))
+summary(rt_model)
 ```
 
 And here is a nicer table formatting.
