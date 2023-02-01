@@ -413,19 +413,19 @@ To analyze response times, we are going to first include only correct trials
 cleandata_rt <- cleandata %>% filter(correct == 1)
 ```
 
-Then, we are going tu run another mixed level model, but this time we are going to include a participant-level random _slope_, which accounts for the fact that different participants might benefit to different extends from the mean effect of the condition. Response times have a complicated relationship to accuracy, since they are the sum of retrieval times and perceptual-motor non-retrieval times.
+Then, we are going to run another mixed level model using the same structure as the Accuracy model. Response times have a complicated relationship to accuracy, since they are the sum of retrieval times and perceptual-motor non-retrieval times.
 
 ```{r}
 rt_model <- lmer(rt ~ condition # Fixed effect of condition 
-                 + (1|participant)   # Random intercept of participant
-                 + (0 + condition|participant),  # Random slope for participant 
+                 + (1|participant),   # Random intercept of participant
+                 #+ (0 + condition|participant),  # Random slope for participant 
                  cleandata_rt)
 ```
 
 The results are here:
 
-```{r}
-summary(rt_model) 
+```{r paged.print=TRUE}
+summary(rt_model)$coefficients %>% kable() %>% kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
 And here is a nicer table formatting.
@@ -458,6 +458,6 @@ ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
   stat_summary(geom="point", fun.data = "mean_se", size=3) +
   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
   geom_text(data=cleandata_rt_summary, 
-            aes(x=condition, y=RT + 300, label=paste(round(RT), "ms")), hjust= -0.1) +
+            aes(x=condition, y=RT + 300, label=paste(round(RT), "ms")), hjust= c(1.1, -0.1)) +
   theme_minimal()
 ```
