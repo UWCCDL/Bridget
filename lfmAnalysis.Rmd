@@ -366,7 +366,47 @@ acc_model <- glmer(correct ~ condition # Fixed effect of condition
                    cleandata)
 ```
 
-And the results are shown here:
+
+#### Comparing the model to other models
+
+We can ask ourselves whether this model is a good model -- for example, does it have the right amount of complexity? To answer this question, we can compare it to a _simpler_ model, whichn does not have any random effects, and to a _more complex_ model, which also includes a random slope per participant.
+
+
+```{r}
+acc_model_simple <- glm(correct ~ condition, # Fixed effect of condition
+                        family=binomial, 
+                        cleandata)
+
+acc_model_complex <- glmer(correct ~ condition # Fixed effect of condition
+                           + (1|participant)  # Interface for participant
+                           + (0 + condition|participant),
+                           family=binomial, 
+                           cleandata)
+
+```
+
+We can see that our model is better than the simpler model:
+
+```{r}
+anova(acc_model, acc_model_simple) %>% 
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+while the complex model does not gain much in terms of fit.
+
+
+```{r}
+anova(acc_model, acc_model_complex) %>% 
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+####  Statistical Results
+
+Having picked the model, we can visualize the results here:
 
 ```{r}
 acc_model %>%
@@ -405,6 +445,45 @@ ggplot(cleandata_agg, aes(x=condition, y=Accuracy, color=condition)) +
 ```
 
 
+#### Compare Data to Model Predictions
+
+How is the data compared to the linear model predictions? To do so, we can generate the model predictions and visualize them side by side to the data:
+
+```{r}
+cleandata <- cleandata %>% mutate(pred_correct = fitted(acc_model))
+
+cleandata %>% pivot_longer(cols=c("correct", "pred_correct"),
+                           values_to = "accuracy",
+                           names_to = "type") -> cleandata_long
+
+cleandata_agg_pred <- cleandata_long %>% 
+  mutate(type = replace(type, type == "correct",  "Observed")) %>% 
+  mutate(type = replace(type, type == "pred_correct", "Predicted")) %>%
+  group_by(participant, condition, type) %>%
+  summarise(Accuracy = mean(accuracy))
+
+cleandata_summary_pred <- cleandata_agg_pred %>% 
+  group_by(condition, type) %>%
+  summarise(Accuracy = mean(Accuracy))
+
+ggplot(cleandata_agg_pred, aes(x=condition, y=Accuracy, color=condition)) +
+  facet_wrap(~ type) +
+  geom_line(color="grey", aes(group=participant), size=0.1) +
+  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  scale_color_aaas() +
+  geom_text(data=cleandata_summary_pred, 
+            aes(x=condition, 
+                y=Accuracy, 
+                label=paste(round(Accuracy*100, 2), "%")), 
+            hjust= c(-0.2)) +
+  ggtitle("Mean Differences in Accuracy") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  theme_minimal()
+
+```
+
 ### Response Times
 
 To analyze response times, we are going to first include only correct trials
@@ -421,6 +500,45 @@ rt_model <- lmer(rt ~ condition # Fixed effect of condition
                  #+ (0 + condition|participant),  # Random slope for participant 
                  cleandata_rt)
 ```
+
+
+
+#### Comparing the model to other models
+
+We can ask ourselves whether this model is a good model -- for example, does it have the right amount of complexity? To answer this question, we can compare it to a _simpler_ model, whichn does not have any random effects, and to a _more complex_ model, which also includes a random slope per participant.
+
+
+```{r}
+rt_model_simple <- lm(rt ~ condition, cleandata_rt)
+
+rt_model_complex <- lmer(rt ~ condition # Fixed effect of condition 
+                         + (1|participant)   # Random intercept of participant
+                         + (0 + condition|participant),  # Random slope for participant 
+                         cleandata_rt)
+
+```
+
+
+We can see that our model is better than the simpler model:
+
+```{r}
+anova(rt_model, rt_model_simple) %>% 
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+while the complex model does not gain much in terms of fit.
+
+
+```{r}
+anova(rt_model, rt_model_complex) %>% 
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Statistical Results
 
 The results are here:
 
@@ -455,9 +573,50 @@ ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
   scale_color_aaas() +
   ggtitle("Mean Differences in Response Times") +
   xlab("Condition") +
+  ylab("Response Times (ms)") +
   stat_summary(geom="point", fun.data = "mean_se", size=3) +
   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
   geom_text(data=cleandata_rt_summary, 
             aes(x=condition, y=RT, label=paste(round(RT), "ms")), hjust= c(1.2, -0.2)) +
   theme_minimal()
+```
+
+
+#### Compare Data to Model Predictions
+
+How is the data compared to the linear model predictions? To do so, we can generate the model predictions and visualize them side by side to the data:
+
+```{r}
+cleandata_rt <- cleandata_rt %>% mutate(pred_rt = fitted(rt_model))
+
+cleandata_rt %>% pivot_longer(cols=c("rt", "pred_rt"),
+                              values_to = "RT",
+                              names_to = "type") -> cleandata_rt_long
+
+cleandata_rt_agg_pred <- cleandata_rt_long %>% 
+  mutate(type = replace(type, type == "rt",  "Observed")) %>% 
+  mutate(type = replace(type, type == "pred_rt", "Predicted")) %>%
+  group_by(participant, condition, type) %>%
+  summarise(RT = mean(RT))
+
+cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>% 
+  group_by(condition, type) %>%
+  summarise(RT = mean(RT))
+
+ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
+  facet_wrap(~ type) +
+  geom_line(color="grey", aes(group=participant), size=0.1) +
+  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  scale_color_aaas() +
+  geom_text(data=cleandata_rt_summary_pred, 
+            aes(x=condition, 
+                y=RT, 
+                label=paste(round(RT), "ms")), 
+            hjust= c(-0.2)) +
+  ggtitle("Mean Differences in Response Times") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  theme_minimal()
+
 ```
