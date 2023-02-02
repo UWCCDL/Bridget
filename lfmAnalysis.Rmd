@@ -12,7 +12,9 @@ library(readxl)
 library(ggplot2)
 library(PairedData)
 
-library(lme4)
+library(lme4)      # Mixed models
+library(lmerTest)  # Summary and p-values for mixed models
+library(sjPlot)   # APA-style tables for mixed models
 library(broom.mixed)
 library(kableExtra)
 library(ggsci)
@@ -321,7 +323,7 @@ resultsCor
 ```
 
 
-## Mixed Linear Models Analysis
+# Mixed Linear Models Analysis
 
 Let's analyze the data using mixed linear models. First, let's look at the distribution of response times to find if there are any obvious outliers:
 
@@ -353,9 +355,9 @@ cleandata <- cleandata %>%
 ```
 
 
-### Settng up a linear mixed model for Accuracy
+## Mixed Linear Model for Accuracy
 
-Linear mixed models are great because they naturally account for variability and individual differences. We are going to first analyze accuracies, which are encoded in the `correct` column of the `cleandata` dataframe.
+Mixed Linear Models are great because they naturally account for variability and individual differences. We are going to first analyze accuracies, which are encoded in the `correct` column of the `cleandata` dataframe.
 
 In our mixed linear models, we are going to model responses are arising from a combination of factors. First, we are going to model a fixed effect of _condition_, i.e., whether the particular response was given to an item in the _Error_ or _Study_ condition. Then, we are going to add a participant-level random _intercept_, which accounts for the fact that different participants have different baseline accuracies. And, finally, we are going to make sure that the model uses a binomial distribution, because accuracy data is binary (correct or not).
 
@@ -367,7 +369,7 @@ acc_model <- glmer(correct ~ condition # Fixed effect of condition
 ```
 
 
-#### Comparing the model to other models
+### Comparing the model to other models
 
 We can ask ourselves whether this model is a good model -- for example, does it have the right amount of complexity? To answer this question, we can compare it to a _simpler_ model, whichn does not have any random effects, and to a _more complex_ model, which also includes a random slope per participant.
 
@@ -404,7 +406,7 @@ anova(acc_model, acc_model_complex) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-####  Statistical Results
+###  Statistical Results
 
 Having picked the model, we can visualize the results here:
 
@@ -415,7 +417,13 @@ acc_model %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-#### Visualizing the data
+And in APA style
+
+```{r}
+tab_model(acc_model)
+```
+
+### Visualizing the data
 
 And here is a quick visualization:
 
@@ -445,7 +453,7 @@ ggplot(cleandata_agg, aes(x=condition, y=Accuracy, color=condition)) +
 ```
 
 
-#### Compare Data to Model Predictions
+### Compare Data to Model Predictions
 
 How is the data compared to the linear model predictions? To do so, we can generate the model predictions and visualize them side by side to the data:
 
@@ -484,7 +492,7 @@ ggplot(cleandata_agg_pred, aes(x=condition, y=Accuracy, color=condition)) +
 
 ```
 
-### Response Times
+## Response Times
 
 To analyze response times, we are going to first include only correct trials
 
@@ -503,7 +511,7 @@ rt_model <- lmer(rt ~ condition # Fixed effect of condition
 
 
 
-#### Comparing the model to other models
+### Comparing the model to other models
 
 We can ask ourselves whether this model is a good model -- for example, does it have the right amount of complexity? To answer this question, we can compare it to a _simpler_ model, whichn does not have any random effects, and to a _more complex_ model, which also includes a random slope per participant.
 
@@ -538,7 +546,7 @@ anova(rt_model, rt_model_complex) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-#### Statistical Results
+### Statistical Results
 
 The results are here:
 
@@ -555,7 +563,16 @@ rt_model %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-#### Visualizing the data
+And here it is in APA style:
+
+And in APA style
+
+```{r}
+tab_model(rt_model)
+```
+
+
+### Visualizing the data
 
 And here is a visualization:
 
@@ -582,7 +599,7 @@ ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
 ```
 
 
-#### Compare Data to Model Predictions
+### Compare Data to Model Predictions
 
 How is the data compared to the linear model predictions? To do so, we can generate the model predictions and visualize them side by side to the data:
 
