@@ -686,7 +686,7 @@ slopedata <- tibble(Slope=slopes)
 ggplot(slopedata, aes(x=Slope)) +
   geom_histogram(bin=10, col="white") +
   xlim(-400, 400) +
-  ylab("Number") +
+  ylab("Number of Participants") +
   ggtitle("Distribution of Best Fitting Random Slopes") +
   theme_minimal() +
   geom_vline(xintercept = 0, linetype="dashed", 
