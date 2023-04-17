@@ -89,7 +89,7 @@ groupLFM_clean <- indivLFM_clean %>%
 
 Plot something:
 ```{r}
-ggplot(data = indivLFM) +
+ggplot(data = indivLFM_clean) +
   geom_point(mapping = aes(x = condition, y = performance, color = participant)) +
   geom_line(mapping = aes(x = condition, y = performance, group = participant)) +
   labs(
