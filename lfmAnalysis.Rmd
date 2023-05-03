@@ -22,7 +22,7 @@ library(ggsci)
 
 Load the test data set that includes 4 ppts:
 ```{r}
-testData <- read_excel("testData.xlsx") %>% 
+testData <- read_excel("data/testData.xlsx") %>% 
   mutate(condition = replace(condition, condition == 1, "error")) %>% 
   mutate(condition = replace(condition, condition == 2, "study")) 
 
@@ -102,7 +102,7 @@ ggplot(data = indivLFM_clean) +
 Checkout real data same way:
 ```{r}
 # take out ppt 1066 bc timeout > 15
-lfmData <- read_excel("lfmData.xlsx")
+lfmData <- read_excel("data/lfmData.xlsx")
 
 ```
 
@@ -363,7 +363,7 @@ In our mixed linear models, we are going to model responses are arising from a c
 
 ```{r}
 acc_model <- glmer(correct ~ condition # Fixed effect of condition
-                   + (1|participant),  # Interface for participant
+                   + (1|participant),  # Intercept for participant
                    family=binomial, 
                    cleandata)
 ```
