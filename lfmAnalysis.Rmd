@@ -756,4 +756,53 @@ elab_acc_agg %>%
             SD_Accuracy = sd(Accuracy, na.rm=T),
             Accuracy = mean(Accuracy, na.rm=T)) %>%
   kable()
+
+elab_rt_agg %>%
+  group_by(condition) %>%
+  summarise(#Accuracy = mean(Accuracy), 
+            SD_RT = sd(RT, na.rm=T),
+            RT = mean(RT, na.rm=T)) 
+```
+
+
+```{r}
+cleandata_rt <- cleandata_rt %>%
+  mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
+
+cleandata_agg <- cleandata_agg %>%
+  mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
+
+cleandata_rt_agg <- cleandata_rt_agg %>%
+  mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
+
+ggplot(cleandata_rt, aes(x=rt, fill=model)) +
+  geom_density(alpha=0.5, color="white") +
+  scale_fill_manual(values = c("gold3", "purple3")) +
+  theme_minimal()
+
+ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=model)) +
+  geom_line(aes(group=participant), size=0.1) +
+  #geom_point(alpha=0.75, color="grey") +
+  scale_color_manual(values = c("gold3", "purple3")) +
+  ggtitle("Mean Differences in Accuracy") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  theme_minimal()
+```
+
+Summary of behavioral differences between the two model-assigned grouops:
+
+```{r}
+cleandata_agg %>%
+  group_by(condition, model) %>%
+  summarise(#Accuracy = mean(Accuracy), 
+            SD_Accuracy = sd(Accuracy, na.rm=T),
+            Accuracy = mean(Accuracy, na.rm=T)) 
+
+cleandata_rt_agg %>%
+  group_by(condition, model) %>%
+  summarise(#Accuracy = mean(Accuracy), 
+            SD_RT = sd(RT, na.rm=T),
+            RT = mean(RT, na.rm=T))
 ```
