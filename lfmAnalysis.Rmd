@@ -362,6 +362,7 @@ Mixed Linear Models are great because they naturally account for variability and
 In our mixed linear models, we are going to model responses are arising from a combination of factors. First, we are going to model a fixed effect of _condition_, i.e., whether the particular response was given to an item in the _Error_ or _Study_ condition. Then, we are going to add a participant-level random _intercept_, which accounts for the fact that different participants have different baseline accuracies. And, finally, we are going to make sure that the model uses a binomial distribution, because accuracy data is binary (correct or not).
 
 ```{r}
+cleandata$participant <- as.factor(cleandata$participant)
 acc_model <- glmer(correct ~ condition # Fixed effect of condition
                    + (1|participant),  # Intercept for participant
                    family=binomial, 
@@ -503,6 +504,7 @@ cleandata_rt <- cleandata %>% filter(correct == 1)
 Then, we are going to run another mixed level model using the same structure as the Accuracy model. Response times have a complicated relationship to accuracy, since they are the sum of retrieval times and perceptual-motor non-retrieval times.
 
 ```{r}
+cleandata_rt$participant <- as.factor(cleandata_rt$participant)
 rt_model <- lmer(rt ~ condition # Fixed effect of condition 
                  + (1|participant),   # Random intercept of participant
                  #+ (0 + condition|participant),  # Random slope for participant 
@@ -584,9 +586,10 @@ cleandata_rt_summary <- cleandata_rt_agg %>% group_by(condition) %>%
   summarise(RT = mean(RT))
 
 ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
-  geom_line(color="grey", aes(group=participant), size=0.1) +
+  geom_line(color="grey", aes(group=participant), size=0.25) +
 
-  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  geom_point(size=0.5, alpha=0.75, color="grey") +
   scale_color_aaas() +
   ggtitle("Mean Differences in Response Times") +
   xlab("Condition") +
@@ -623,7 +626,8 @@ cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>%
 ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
   facet_wrap(~ type) +
   geom_line(color="grey", aes(group=participant), size=0.1) +
-  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  geom_point(size=0.5, alpha=0.75, color="grey") +
   scale_color_aaas() +
   geom_text(data=cleandata_rt_summary_pred, 
             aes(x=condition, 
@@ -661,7 +665,7 @@ cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>%
 ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
   facet_wrap(~ type) +
   geom_line(color="grey", aes(group=participant), size=0.1) +
-  geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+  #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
   scale_color_aaas() +
   geom_text(data=cleandata_rt_summary_pred, 
             aes(x=condition, 
@@ -691,4 +695,65 @@ ggplot(slopedata, aes(x=Slope)) +
   theme_minimal() +
   geom_vline(xintercept = 0, linetype="dashed", 
                 color = "black", size=1)
+```
+
+## Participants who might be elaborative
+
+```{r}
+elab <- c("1008","1015", "1032",
+          "1051", "1053", "1061")
+elab_acc <- filter(cleandata, cleandata$participant %in% elab) 
+elab_acc_agg <- elab_acc %>%
+  group_by(participant, condition) %>%
+  summarise(Accuracy = mean(correct))
+
+elab_rt <- filter(cleandata_rt, cleandata_rt$participant %in% elab) 
+elab_rt_agg <- elab_rt %>%
+  group_by(participant, condition) %>%
+  summarise(RT = mean(rt))
+
+
+ggplot(elab_acc_agg, aes(x=condition, y=Accuracy, color=condition)) +
+  geom_line(color="grey", aes(group=participant), size=0.1) +
+  geom_point( alpha=0.5, color="grey") +
+  scale_color_aaas() +
+
+  ggtitle("Mean Differences in Accuracy") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  # geom_text(data=cleandata_summary, 
+  #           aes(x=condition, 
+  #               y=Accuracy, 
+  #               label=paste(round(Accuracy*100, 2), "%")), 
+  #           hjust= c(1.2, -0.2)) +
+
+  theme_minimal()
+
+ggplot(elab_rt_agg, aes(x=condition, y=RT, color=condition)) +
+  geom_line(color="grey", aes(group=participant), size=0.1) +
+  geom_point(alpha=0.75, color="grey") +
+  scale_color_aaas() +
+
+  ggtitle("Mean Differences in Accuracy") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  # geom_text(data=cleandata_summary, 
+  #           aes(x=condition, 
+  #               y=Accuracy, 
+  #               label=paste(round(Accuracy*100, 2), "%")), 
+  #           hjust= c(1.2, -0.2)) +
+
+  theme_minimal()
+```
+Some numbers
+
+```{r}
+elab_acc_agg %>%
+  group_by(condition) %>%
+  summarise(#Accuracy = mean(Accuracy), 
+            SD_Accuracy = sd(Accuracy, na.rm=T),
+            Accuracy = mean(Accuracy, na.rm=T)) %>%
+  kable()
 ```
