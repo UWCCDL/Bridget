@@ -11,10 +11,14 @@ library(tidyr)
 library(readxl)
 library(ggplot2)
 library(PairedData)
+library(glue)
+
 
 library(lme4)      # Mixed models
 library(lmerTest)  # Summary and p-values for mixed models
 library(sjPlot)   # APA-style tables for mixed models
+library(misty)
+library(stargazer) # text tables for mixed models
 library(broom.mixed)
 library(kableExtra)
 library(ggsci)
@@ -343,6 +347,10 @@ There are clearly some trials, from a few participants, that take a huge amount 
 
 ```{r}
 cleandata <- cleanLFM %>% filter(rt > 200, rt < 15000)
+print(glue(
+  "Removed {nrow(cleanLFM) - nrow(cleandata)} trials from the data ",
+  "or {(nrow(cleanLFM) - nrow(cleandata)) / nrow(cleanLFM)} of trials"
+))
 ```
 
 Finally, we are going to rename the conditions to make sure we are using meaningful labels, and make sure that correct is between 0 and 1.
@@ -362,6 +370,9 @@ Mixed Linear Models are great because they naturally account for variability and
 In our mixed linear models, we are going to model responses are arising from a combination of factors. First, we are going to model a fixed effect of _condition_, i.e., whether the particular response was given to an item in the _Error_ or _Study_ condition. Then, we are going to add a participant-level random _intercept_, which accounts for the fact that different participants have different baseline accuracies. And, finally, we are going to make sure that the model uses a binomial distribution, because accuracy data is binary (correct or not).
 
 ```{r}
+## update 10/13/26 change factor ref of condition to study
+cleandata$condition <- relevel(factor(cleandata$condition), ref = 'study')
+
 cleandata$participant <- as.factor(cleandata$participant)
 acc_model <- glmer(correct ~ condition # Fixed effect of condition
                    + (1|participant),  # Intercept for participant
@@ -410,6 +421,9 @@ anova(acc_model, acc_model_complex) %>%
 ###  Statistical Results
 
 Having picked the model, we can visualize the results here:
+```{r}
+summary(acc_model)
+```
 
 ```{r}
 acc_model %>%
@@ -421,8 +435,19 @@ acc_model %>%
 And in APA style
 
 ```{r}
-tab_model(acc_model)
+tab_model(acc_model,
+          transform = NULL,                 # log-odds, matching your text
+          show.se = TRUE, show.stat = TRUE, string.stat = "z",
+          show.aic = TRUE, show.loglik = TRUE,
+          show.icc = TRUE, show.re.var = TRUE, show.r2 = TRUE,
+          show.obs = TRUE, show.ngroups = TRUE,
+          pred.labels = c("Intercept", "Condition (error vs. study)"),
+          dv.labels = "Accuracy",
+          p.style = "numeric_stars",
+          file = "acc_table.html")
 ```
+
+
 
 ### Visualizing the data
 
@@ -493,6 +518,47 @@ ggplot(cleandata_agg_pred, aes(x=condition, y=Accuracy, color=condition)) +
 
 ```
 
+And a nicer paper visual:
+```{r, fig.width=10, fig.height=6}
+jitter <- position_jitter(width=0.1, seed=1)
+
+cleandata_agg_pred <- cleandata_agg_pred %>%
+  arrange(type, participant, condition)
+
+ggplot(cleandata_agg_pred, aes(x=condition, y=Accuracy, color=condition)) +
+  facet_wrap(~ type) +
+  geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey", size=2) +
+  geom_line(color="grey", aes(group=participant), position = jitter, size=0.01, alpha=0.5) +
+  # scale_color_aaas() +
+  scale_color_manual(values=c("#008080", "#DC143C")) +
+  
+  geom_text(data=cleandata_summary_pred, 
+            size=6.5,
+            aes(x=condition, 
+                y=Accuracy, 
+                label=paste(round(Accuracy*100, 2), "%")),
+            hjust= c(-0.3), show.legend = FALSE) +
+  ggtitle("Mean Differences in Accuracy") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3.5) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.2) +
+  labs(color = "Condition") +
+  theme_minimal() +
+  theme(legend.position = c(0, 1),
+        legend.background = element_rect(fill="white",size=0.2,
+                                         linetype="solid", colour ="lightgrey"),
+        # text = element_text(size=18),
+        # plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 22),
+        plot.title = element_text(size = 26, hjust = 0.5),
+        axis.title.x = element_text(size = 24),
+        axis.title.y = element_text(size = 24),
+        axis.text = element_text(size = 18),
+        strip.text = element_text(size = 18))
+
+```
+
 # Response Times
 
 To analyze response times, we are going to first include only correct trials
@@ -505,7 +571,11 @@ Then, we are going to run another mixed level model using the same structure as 
 
 ```{r}
 cleandata_rt$participant <- as.factor(cleandata_rt$participant)
-rt_model <- lmer(rt ~ condition # Fixed effect of condition 
+
+## update 10/13/2026 use inverse RT (ratcliff 93) to adjust right-skewed RTs
+cleandata_rt$inv_rt <- -1000/cleandata_rt$rt # use -1000 to keep direction of RTs (larger = slower)
+
+rt_model <- lmer(inv_rt ~ condition # Fixed effect of condition 
                  + (1|participant),   # Random intercept of participant
                  #+ (0 + condition|participant),  # Random slope for participant 
                  cleandata_rt)
@@ -519,9 +589,9 @@ We can ask ourselves whether this model is a good model -- for example, does it 
 
 
 ```{r}
-rt_model_simple <- lm(rt ~ condition, cleandata_rt)
+rt_model_simple <- lm(inv_rt ~ condition, cleandata_rt)
 
-rt_model_complex <- lmer(rt ~ condition # Fixed effect of condition 
+rt_model_complex <- lmer(inv_rt ~ condition # Fixed effect of condition 
                          + (1|participant)   # Random intercept of participant
                          + (0 + condition|participant),  # Random slope for participant 
                          cleandata_rt)
@@ -548,6 +618,7 @@ anova(rt_model, rt_model_complex) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
+
 ### Statistical Results
 
 The results are here:
@@ -567,13 +638,31 @@ rt_model %>%
 
 And here it is in APA style:
 
-And in APA style
-
 ```{r}
-tab_model(rt_model)
+# Reaction time (linear)
+tab_model(rt_model,
+          df.method = "satterthwaite",      # matches your lmerTest summary
+          show.se = TRUE, show.stat = TRUE, string.stat = "t", show.df = TRUE,
+          show.aic = TRUE, show.loglik = TRUE,
+          show.icc = TRUE, show.re.var = TRUE, show.r2 = TRUE,
+          show.obs = TRUE, show.ngroups = TRUE,
+          pred.labels = c("Intercept", "Condition (error vs. study)"),
+          dv.labels = "Inverse Reaction time (-1000/RT)",
+          p.style = "numeric_stars",
+          file = "rt_table.html")
+
+library(misty)
+multilevel.r2(rt_model, print = c("SB", "NS"))   # Snijders & Bosker R² for the RT model
 ```
 
-
+```{r}
+library(emmeans)
+emm <- as.data.frame(emmeans(rt_model, ~ condition))
+emm$rt_ms    <- -1000 / emm$emmean
+emm$lower_ms <- -1000 / emm$lower.CL
+emm$upper_ms <- -1000 / emm$upper.CL
+emm[, c("condition", "rt_ms", "lower_ms", "upper_ms")]
+```
 ### Visualizing the data
 
 And here is a visualization:
@@ -602,7 +691,7 @@ ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
 ```
 
 
-### Compare Data to Model Predictions
+### Compare Data to Model Predictions (original)
 
 How is the data compared to the linear model predictions? To do so, we can generate the model predictions and visualize them side by side to the data:
 
@@ -640,6 +729,113 @@ ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
   theme_minimal()
 ```
+
+And a paper visual:
+
+```{r}
+jitter <- position_jitter(width=0.1, seed=1)
+
+cleandata_rt_agg_pred <- cleandata_rt_agg_pred %>%
+  arrange(type, participant, condition)
+  
+ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
+  facet_wrap(~ type) +
+  geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey") +
+  geom_line(color="grey", aes(group=participant), position = jitter,  size=0.01, alpha=0.5) +
+  # scale_color_aaas() +
+  scale_color_manual(values=c("#DC143C", "#008080")) +
+  
+  geom_text(data=cleandata_rt_summary_pred, 
+            aes(x=condition, 
+                y=RT, 
+                label=paste(round(RT), "ms")), size=6,
+            hjust= c(-0.2)) +
+  ggtitle("Mean Differences in Response Times") +
+  xlab("Condition") +
+  stat_summary(geom="point", fun.data = "mean_se", size=3) +
+  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  labs(color = "Condition") +
+  theme_minimal() +
+  theme(legend.position = c(0, 1),
+        legend.background = element_rect(fill="white",size=0.2,
+                                         linetype="solid", colour ="lightgrey"),
+        # text = element_text(size=18),
+        # plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 22),
+        plot.title = element_text(size = 26, hjust = 0.5),
+        axis.title.x = element_text(size = 24),
+        axis.title.y = element_text(size = 24),
+        axis.text = element_text(size = 18),
+        strip.text = element_text(size = 18))
+```
+
+### compare obs vs pred (with inv)
+```{r}
+cleandata_rt <- cleandata_rt %>%
+  mutate(inv_rt   = -1000 / rt,
+         pred_inv = fitted(rt_model_inv))   # includes participant intercepts, as before
+
+cleandata_rt_long <- cleandata_rt %>%
+  pivot_longer(cols = c(inv_rt, pred_inv), names_to = "type", values_to = "inv") %>%
+  mutate(type = recode(type, inv_rt = "Observed", pred_inv = "Predicted"))
+
+# Participant-level means on the inverse scale, then back to ms
+cleandata_rt_agg_pred <- cleandata_rt_long %>%
+  group_by(participant, condition, type) %>%
+  summarise(inv = mean(inv), .groups = "drop") %>%
+  mutate(RT = -1000 / inv)
+
+# Group mean ± SE on the inverse scale, then back to ms
+cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>%
+  group_by(condition, type) %>%
+  summarise(m = mean(inv), se = sd(inv) / sqrt(n()), .groups = "drop") %>%
+  mutate(RT = -1000 / m,
+         lo = -1000 / (m - se),
+         hi = -1000 / (m + se))
+```
+
+```{r, fig.height=6, fig.width=10}
+jitter <- position_jitter(width=0.1, seed=1)
+
+cleandata_rt_agg_pred <- cleandata_rt_agg_pred %>%
+  arrange(type, participant, condition)
+  
+ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
+  facet_wrap(~ type) +
+  geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey") +
+  geom_line(color="grey", aes(group=participant), position = jitter,  size=0.01, alpha=0.5) +
+  # scale_color_aaas() +
+  scale_color_manual(values=c("#008080", "#DC143C")) +
+  
+  geom_text(data=cleandata_rt_summary_pred, 
+            aes(x=condition, 
+                y=RT, 
+                label=paste(round(RT), "ms")), size=6,
+            hjust= c(-0.2), show.legend = FALSE) +
+  ggtitle("Mean Differences in Response Times") +
+  xlab("Condition") +
+  geom_point(data = cleandata_rt_summary_pred, aes(y = RT), size = 3) +
+  geom_errorbar(data = cleandata_rt_summary_pred, aes(ymin = lo, ymax = hi), width = 0.1) +
+  ylab("Response time (ms)") +
+  labs(color = "Condition") +
+  theme_minimal() +
+  theme(legend.position = c(0, 1),
+        legend.background = element_rect(fill="white",size=0.2,
+                                         linetype="solid", colour ="lightgrey"),
+        # text = element_text(size=18),
+        # plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 22),
+        plot.title = element_text(size = 26, hjust = 0.5),
+        axis.title.x = element_text(size = 24),
+        axis.title.y = element_text(size = 24),
+        axis.text = element_text(size = 18),
+        strip.text = element_text(size = 18))
+
+ggsave("rt_model_visual.png", width = 10, height=6, dpi=300)
+```
+
 
 ## Individual differences
 
