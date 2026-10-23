@@ -444,7 +444,7 @@ tab_model(acc_model,
           pred.labels = c("Intercept", "Condition (error vs. study)"),
           dv.labels = "Accuracy",
           p.style = "numeric_stars",
-          file = "acc_table.html")
+          file = "manuscript_visuals/table1.html")
 ```
 
 
@@ -528,7 +528,7 @@ cleandata_agg_pred <- cleandata_agg_pred %>%
 ggplot(cleandata_agg_pred, aes(x=condition, y=Accuracy, color=condition)) +
   facet_wrap(~ type) +
   geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey", size=2) +
-  geom_line(color="grey", aes(group=participant), position = jitter, size=0.01, alpha=0.5) +
+  geom_line(aes(group=participant), position = jitter, color="grey", linewidth=0.3, alpha=0.5) +
   # scale_color_aaas() +
   scale_color_manual(values=c("#008080", "#DC143C")) +
   
@@ -556,6 +556,8 @@ ggplot(cleandata_agg_pred, aes(x=condition, y=Accuracy, color=condition)) +
         axis.title.y = element_text(size = 24),
         axis.text = element_text(size = 18),
         strip.text = element_text(size = 18))
+
+ggsave("manuscript_visuals/fig2.png", width=10, height=6, bg='white', dpi=300)
 
 ```
 
@@ -649,7 +651,7 @@ tab_model(rt_model,
           pred.labels = c("Intercept", "Condition (error vs. study)"),
           dv.labels = "Inverse Reaction time (-1000/RT)",
           p.style = "numeric_stars",
-          file = "rt_table.html")
+          file = "manuscript_visuals/table2.html")
 
 library(misty)
 multilevel.r2(rt_model, print = c("SB", "NS"))   # Snijders & Bosker R² for the RT model
@@ -695,86 +697,88 @@ ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=condition)) +
 
 How is the data compared to the linear model predictions? To do so, we can generate the model predictions and visualize them side by side to the data:
 
-```{r}
-cleandata_rt <- cleandata_rt %>% mutate(pred_rt = fitted(rt_model))
+<!-- ```{r} -->
+<!-- cleandata_rt <- cleandata_rt %>% mutate(pred_rt = fitted(rt_model)) -->
 
-cleandata_rt %>% pivot_longer(cols=c("rt", "pred_rt"),
-                              values_to = "RT",
-                              names_to = "type") -> cleandata_rt_long
+<!-- cleandata_rt %>% pivot_longer(cols=c("rt", "pred_rt"), -->
+<!--                               values_to = "RT", -->
+<!--                               names_to = "type") -> cleandata_rt_long -->
 
-cleandata_rt_agg_pred <- cleandata_rt_long %>% 
-  mutate(type = replace(type, type == "rt",  "Observed")) %>% 
-  mutate(type = replace(type, type == "pred_rt", "Predicted")) %>%
-  group_by(participant, condition, type) %>%
-  summarise(RT = mean(RT))
+<!-- cleandata_rt_agg_pred <- cleandata_rt_long %>%  -->
+<!--   mutate(type = replace(type, type == "rt",  "Observed")) %>%  -->
+<!--   mutate(type = replace(type, type == "pred_rt", "Predicted")) %>% -->
+<!--   group_by(participant, condition, type) %>% -->
+<!--   summarise(RT = mean(RT)) -->
 
-cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>% 
-  group_by(condition, type) %>%
-  summarise(RT = mean(RT))
+<!-- cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>%  -->
+<!--   group_by(condition, type) %>% -->
+<!--   summarise(RT = mean(RT)) -->
 
-ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
-  facet_wrap(~ type) +
-  geom_line(color="grey", aes(group=participant), size=0.1) +
-  #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
-  geom_point(size=0.5, alpha=0.75, color="grey") +
-  scale_color_aaas() +
-  geom_text(data=cleandata_rt_summary_pred, 
-            aes(x=condition, 
-                y=RT, 
-                label=paste(round(RT), "ms")), 
-            hjust= c(-0.2)) +
-  ggtitle("Mean Differences in Response Times") +
-  xlab("Condition") +
-  stat_summary(geom="point", fun.data = "mean_se", size=3) +
-  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
-  theme_minimal()
-```
+<!-- ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) + -->
+<!--   facet_wrap(~ type) + -->
+<!--   geom_line(color="grey", aes(group=participant), size=0.1) + -->
+<!--   #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") + -->
+<!--   geom_point(size=0.5, alpha=0.75, color="grey") + -->
+<!--   scale_color_aaas() + -->
+<!--   geom_text(data=cleandata_rt_summary_pred,  -->
+<!--             aes(x=condition,  -->
+<!--                 y=RT,  -->
+<!--                 label=paste(round(RT), "ms")),  -->
+<!--             hjust= c(-0.2)) + -->
+<!--   ggtitle("Mean Differences in Response Times") + -->
+<!--   xlab("Condition") + -->
+<!--   stat_summary(geom="point", fun.data = "mean_se", size=3) + -->
+<!--   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) + -->
+<!--   theme_minimal() -->
+<!-- ``` -->
 
 And a paper visual:
 
-```{r}
-jitter <- position_jitter(width=0.1, seed=1)
-
-cleandata_rt_agg_pred <- cleandata_rt_agg_pred %>%
-  arrange(type, participant, condition)
-  
-ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
-  facet_wrap(~ type) +
-  geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey") +
-  geom_line(color="grey", aes(group=participant), position = jitter,  size=0.01, alpha=0.5) +
-  # scale_color_aaas() +
-  scale_color_manual(values=c("#DC143C", "#008080")) +
-  
-  geom_text(data=cleandata_rt_summary_pred, 
-            aes(x=condition, 
-                y=RT, 
-                label=paste(round(RT), "ms")), size=6,
-            hjust= c(-0.2)) +
-  ggtitle("Mean Differences in Response Times") +
-  xlab("Condition") +
-  stat_summary(geom="point", fun.data = "mean_se", size=3) +
-  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
-  labs(color = "Condition") +
-  theme_minimal() +
-  theme(legend.position = c(0, 1),
-        legend.background = element_rect(fill="white",size=0.2,
-                                         linetype="solid", colour ="lightgrey"),
-        # text = element_text(size=18),
-        # plot.title = element_text(hjust = 0.5),
-        legend.text = element_text(size = 18),
-        legend.title = element_text(size = 22),
-        plot.title = element_text(size = 26, hjust = 0.5),
-        axis.title.x = element_text(size = 24),
-        axis.title.y = element_text(size = 24),
-        axis.text = element_text(size = 18),
-        strip.text = element_text(size = 18))
-```
+# ```{r}
+# jitter <- position_jitter(width=0.1, seed=1)
+# 
+# cleandata_rt_agg_pred <- cleandata_rt_agg_pred %>%
+#   arrange(type, participant, condition)
+#   
+# ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
+#   facet_wrap(~ type) +
+#   geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey") +
+#   geom_line(color="grey", aes(group=participant), position = jitter,  linewidth=0.3, alpha=0.5) +
+#   # scale_color_aaas() +
+#   scale_color_manual(values=c("#DC143C", "#008080")) +
+#   
+#   geom_text(data=cleandata_rt_summary_pred, 
+#             aes(x=condition, 
+#                 y=RT, 
+#                 label=paste(round(RT), "ms")), size=6,
+#             hjust= c(-0.2)) +
+#   ggtitle("Mean Differences in Response Times") +
+#   xlab("Condition") +
+#   stat_summary(geom="point", fun.data = "mean_se", size=3) +
+#   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+#   labs(color = "Condition") +
+#   theme_minimal() +
+#   theme(legend.position = c(0, 1),
+#         legend.background = element_rect(fill="white",size=0.2,
+#                                          linetype="solid", colour ="lightgrey"),
+#         # text = element_text(size=18),
+#         # plot.title = element_text(hjust = 0.5),
+#         legend.text = element_text(size = 18),
+#         legend.title = element_text(size = 22),
+#         plot.title = element_text(size = 26, hjust = 0.5),
+#         axis.title.x = element_text(size = 24),
+#         axis.title.y = element_text(size = 24),
+#         axis.text = element_text(size = 18),
+#         strip.text = element_text(size = 18))
+# 
+# ggsave("manuscript_visuals/rt_plot.png", width=10, height=6, bg='white', dpi=300)
+# ```
 
 ### compare obs vs pred (with inv)
 ```{r}
 cleandata_rt <- cleandata_rt %>%
   mutate(inv_rt   = -1000 / rt,
-         pred_inv = fitted(rt_model_inv))   # includes participant intercepts, as before
+         pred_inv = fitted(rt_model))   # includes participant intercepts, as before
 
 cleandata_rt_long <- cleandata_rt %>%
   pivot_longer(cols = c(inv_rt, pred_inv), names_to = "type", values_to = "inv") %>%
@@ -804,7 +808,7 @@ cleandata_rt_agg_pred <- cleandata_rt_agg_pred %>%
 ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
   facet_wrap(~ type) +
   geom_point(aes(group=participant), position = jitter, alpha=0.75, color="grey") +
-  geom_line(color="grey", aes(group=participant), position = jitter,  size=0.01, alpha=0.5) +
+  geom_line(color="grey", aes(group=participant), position = jitter,  linewidth=0.3, alpha=0.5) +
   # scale_color_aaas() +
   scale_color_manual(values=c("#008080", "#DC143C")) +
   
@@ -833,172 +837,412 @@ ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
         axis.text = element_text(size = 18),
         strip.text = element_text(size = 18))
 
-ggsave("rt_model_visual.png", width = 10, height=6, dpi=300)
+ggsave("manuscript_visuals/fig3.png", bg='white', width = 10, height=6, dpi=300)
 ```
 
 
-## Individual differences
+# Individual differences (Old code for non inverse RTs)
+# ```{r}
+# isSingular(rt_model_complex)
+# VarCorr(rt_model_complex)
+# ```
+# 
+# Some participants seem to have slopes in the _opposite_ direction, suggesting the use of the elaborative strategy. Is that the case? To examine this, we can go back to the complex RT model, which include random slopes as well as random intercepts.
+# 
+# ```{r}
+# cleandata_rt <- cleandata_rt %>% mutate(pred_rt = fitted(rt_model_complex))
+# 
+# cleandata_rt %>% pivot_longer(cols=c("rt", "pred_rt"),
+#                               values_to = "RT",
+#                               names_to = "type") -> cleandata_rt_long
+# 
+# cleandata_rt_agg_pred <- cleandata_rt_long %>% 
+#   mutate(type = replace(type, type == "rt",  "Observed")) %>% 
+#   mutate(type = replace(type, type == "pred_rt", "Predicted")) %>%
+#   group_by(participant, condition, type) %>%
+#   summarise(RT = mean(RT))
+# 
+# cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>% 
+#   group_by(condition, type) %>%
+#   summarise(RT = mean(RT))
+# 
+# ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
+#   facet_wrap(~ type) +
+#   geom_line(color="grey", aes(group=participant), size=0.1) +
+#   #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
+#   scale_color_aaas() +
+#   geom_text(data=cleandata_rt_summary_pred, 
+#             aes(x=condition, 
+#                 y=RT, 
+#                 label=paste(round(RT), "ms")), 
+#             hjust= c(-0.2)) +
+#   ggtitle("Mean Differences in Response Times (with Random Slopes)") +
+#   xlab("Condition") +
+#   stat_summary(geom="point", fun.data = "mean_se", size=3) +
+#   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+#   theme_minimal()
+# ```
 
-Some participants seem to have slopes in the _opposite_ direction, suggesting the use of the elaborative strategy. Is that the case? To examine this, we can go back to the complex RT model, which include random slopes as well as random intercepts.
+<!-- Note that __all the slopes are negative__: this means that the apparent upward slopes are the effects of outlier data.  -->
 
+<!-- To check, let's examine the distribution of the slopes of each participant: -->
+
+<!-- ```{r} -->
+<!-- coeffs <- coef(rt_model_complex) -->
+<!-- slopes <- coeffs$participant[,3] - coeffs$participant[,1] -->
+<!-- slopedata <- tibble(Slope=slopes) -->
+<!-- ggplot(slopedata, aes(x=Slope)) + -->
+<!--   geom_histogram(bin=10, col="white") + -->
+<!--   xlim(-400, 400) + -->
+<!--   ylab("Number of Participants") + -->
+<!--   ggtitle("Distribution of Best Fitting Random Slopes") + -->
+<!--   theme_minimal() + -->
+<!--   geom_vline(xintercept = 0, linetype="dashed",  -->
+<!--                 color = "black", size=1) -->
+<!-- ``` -->
+
+<!-- ## Participants who might be elaborative -->
+
+<!-- ```{r} -->
+<!-- elab <- c("1008","1015", "1032", -->
+<!--           "1051", "1053", "1061") -->
+<!-- elab_acc <- filter(cleandata, cleandata$participant %in% elab)  -->
+<!-- elab_acc_agg <- elab_acc %>% -->
+<!--   group_by(participant, condition) %>% -->
+<!--   summarise(Accuracy = mean(correct)) -->
+
+<!-- elab_rt <- filter(cleandata_rt, cleandata_rt$participant %in% elab)  -->
+<!-- elab_rt_agg <- elab_rt %>% -->
+<!--   group_by(participant, condition) %>% -->
+<!--   summarise(RT = mean(rt)) -->
+
+
+<!-- ggplot(elab_acc_agg, aes(x=condition, y=Accuracy, color=condition)) + -->
+<!--   geom_line(color="grey", aes(group=participant), size=0.1) + -->
+<!--   geom_point( alpha=0.5, color="grey") + -->
+<!--   scale_color_aaas() + -->
+
+<!--   ggtitle("Mean Differences in Accuracy") + -->
+<!--   xlab("Condition") + -->
+<!--   stat_summary(geom="point", fun.data = "mean_se", size=3) + -->
+<!--   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) + -->
+<!--   # geom_text(data=cleandata_summary,  -->
+<!--   #           aes(x=condition,  -->
+<!--   #               y=Accuracy,  -->
+<!--   #               label=paste(round(Accuracy*100, 2), "%")),  -->
+<!--   #           hjust= c(1.2, -0.2)) + -->
+
+<!--   theme_minimal() -->
+
+<!-- ggplot(elab_rt_agg, aes(x=condition, y=RT, color=condition)) + -->
+<!--   geom_line(color="grey", aes(group=participant), size=0.1) + -->
+<!--   geom_point(alpha=0.75, color="grey") + -->
+<!--   scale_color_aaas() + -->
+
+<!--   ggtitle("Mean Differences in Accuracy") + -->
+<!--   xlab("Condition") + -->
+<!--   stat_summary(geom="point", fun.data = "mean_se", size=3) + -->
+<!--   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) + -->
+<!--   # geom_text(data=cleandata_summary,  -->
+<!--   #           aes(x=condition,  -->
+<!--   #               y=Accuracy,  -->
+<!--   #               label=paste(round(Accuracy*100, 2), "%")),  -->
+<!--   #           hjust= c(1.2, -0.2)) + -->
+
+<!--   theme_minimal() -->
+<!-- ``` -->
+<!-- Some numbers -->
+
+<!-- ```{r} -->
+<!-- elab_acc_agg %>% -->
+<!--   group_by(condition) %>% -->
+<!--   summarise(#Accuracy = mean(Accuracy),  -->
+<!--             SD_Accuracy = sd(Accuracy, na.rm=T), -->
+<!--             Accuracy = mean(Accuracy, na.rm=T)) %>% -->
+<!--   kable() -->
+
+<!-- elab_rt_agg %>% -->
+<!--   group_by(condition) %>% -->
+<!--   summarise(#Accuracy = mean(Accuracy),  -->
+<!--             SD_RT = sd(RT, na.rm=T), -->
+<!--             RT = mean(RT, na.rm=T))  -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- cleandata_rt <- cleandata_rt %>% -->
+<!--   mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator")) -->
+
+<!-- cleandata_agg <- cleandata_agg %>% -->
+<!--   mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator")) -->
+
+<!-- cleandata_rt_agg <- cleandata_rt_agg %>% -->
+<!--   mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator")) -->
+
+<!-- ggplot(cleandata_rt, aes(x=rt, fill=model)) + -->
+<!--   geom_density(alpha=0.5, color="white") + -->
+<!--   scale_fill_manual(values = c("gold3", "purple3")) + -->
+<!--   theme_minimal() -->
+
+<!-- ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=model)) + -->
+<!--   geom_line(aes(group=participant), size=0.1) + -->
+<!--   #geom_point(alpha=0.75, color="grey") + -->
+<!--   scale_color_manual(values = c("gold3", "purple3")) + -->
+<!--   ggtitle("Mean Differences in Accuracy") + -->
+<!--   xlab("Condition") + -->
+<!--   stat_summary(geom="point", fun.data = "mean_se", size=3) + -->
+<!--   stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) + -->
+<!--   theme_minimal() -->
+<!-- ``` -->
+
+<!-- Summary of behavioral differences between the two model-assigned grouops: -->
+
+<!-- ```{r} -->
+<!-- cleandata_agg %>% -->
+<!--   group_by(condition, model) %>% -->
+<!--   summarise(#Accuracy = mean(Accuracy),  -->
+<!--             SD_Accuracy = sd(Accuracy, na.rm=T), -->
+<!--             Accuracy = mean(Accuracy, na.rm=T))  -->
+
+<!-- cleandata_rt_agg %>% -->
+<!--   group_by(condition, model) %>% -->
+<!--   summarise(#Accuracy = mean(Accuracy),  -->
+<!--             SD_RT = sd(RT, na.rm=T), -->
+<!--             RT = mean(RT, na.rm=T)) -->
+<!-- ``` -->
+
+
+# Individual differences (new) with inv RTs
 ```{r}
-cleandata_rt <- cleandata_rt %>% mutate(pred_rt = fitted(rt_model_complex))
+inv_back    <- function(x) -1000 / x
+cond_colors <- c(error = "#DC143C", study = "#008080")
+ 
+# Participant x condition means on the inverse scale, back-transformed to ms.
+# Extra grouping variables (e.g., model) can be passed via ...
+agg_rt_inv <- function(data, ...) {
+  data %>%
+    group_by(participant, condition, ...) %>%
+    summarise(inv = mean(-1000 / rt), .groups = "drop") %>%
+    mutate(RT = inv_back(inv))
+}
+ 
+# Group mean +/- 1 SE on the inverse scale, back-transformed to ms
+summ_rt_inv <- function(agg, ...) {
+  agg %>%
+    group_by(condition, ...) %>%
+    summarise(m = mean(inv), se = sd(inv) / sqrt(n()), .groups = "drop") %>%
+    mutate(RT = inv_back(m), lo = inv_back(m - se), hi = inv_back(m + se))
+}
+ 
+# Observed vs. model-predicted participant means (both on the inverse scale)
+make_rt_summaries <- function(fit, data) {
+  pred <- fitted(fit)                    
+  agg <- data %>%
+    mutate(Observed = -1000 / rt, Predicted = pred) %>%
+    pivot_longer(c(Observed, Predicted), names_to = "type", values_to = "inv") %>%
+    group_by(participant, condition, type) %>%
+    summarise(inv = mean(inv), .groups = "drop") %>%
+    mutate(RT = inv_back(inv))
+  list(agg = agg, summ = summ_rt_inv(agg, type))
+}
+```
 
-cleandata_rt %>% pivot_longer(cols=c("rt", "pred_rt"),
-                              values_to = "RT",
-                              names_to = "type") -> cleandata_rt_long
 
-cleandata_rt_agg_pred <- cleandata_rt_long %>% 
-  mutate(type = replace(type, type == "rt",  "Observed")) %>% 
-  mutate(type = replace(type, type == "pred_rt", "Predicted")) %>%
-  group_by(participant, condition, type) %>%
-  summarise(RT = mean(RT))
-
-cleandata_rt_summary_pred <- cleandata_rt_agg_pred %>% 
-  group_by(condition, type) %>%
-  summarise(RT = mean(RT))
-
-ggplot(cleandata_rt_agg_pred, aes(x=condition, y=RT, color=condition)) +
+```{r} 
+# ---- Random-slopes model: observed vs. predicted ----------------------------
+out <- make_rt_summaries(rt_model_complex, cleandata_rt)
+ 
+ggplot(out$agg, aes(x = condition, y = RT, color = condition)) +
   facet_wrap(~ type) +
-  geom_line(color="grey", aes(group=participant), size=0.1) +
-  #geom_point(position =   position_jitter(width=0.1), alpha=0.75, color="grey") +
-  scale_color_aaas() +
-  geom_text(data=cleandata_rt_summary_pred, 
-            aes(x=condition, 
-                y=RT, 
-                label=paste(round(RT), "ms")), 
-            hjust= c(-0.2)) +
-  ggtitle("Mean Differences in Response Times (with Random Slopes)") +
-  xlab("Condition") +
-  stat_summary(geom="point", fun.data = "mean_se", size=3) +
-  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+  geom_line(aes(group = participant), color = "grey", linewidth = 0.1) +
+  geom_point(data = out$summ, size = 3) +
+  geom_errorbar(data = out$summ, aes(ymin = lo, ymax = hi), width = 0.1) +
+  geom_text(data = out$summ, aes(label = paste(round(RT), "ms")),
+            hjust = -0.2, show.legend = FALSE) +
+  scale_color_manual(values = cond_colors) +
+  labs(title = "Mean Differences in Response Times (with Random Slopes)",
+       x = "Condition", y = "Response time (ms)") +
   theme_minimal()
 ```
 
-Note that __all the slopes are negative__: this means that the apparent upward slopes are the effects of outlier data. 
-
-To check, let's examine the distribution of the slopes of each participant:
-
 ```{r}
-coeffs <- coef(rt_model_complex)
-slopes <- coeffs$participant[,3] - coeffs$participant[,1]
-slopedata <- tibble(Slope=slopes)
-ggplot(slopedata, aes(x=Slope)) +
-  geom_histogram(bin=10, col="white") +
-  xlim(-400, 400) +
-  ylab("Number of Participants") +
-  ggtitle("Distribution of Best Fitting Random Slopes") +
-  theme_minimal() +
-  geom_vline(xintercept = 0, linetype="dashed", 
-                color = "black", size=1)
+# ---- Distribution of participant-level effects (in ms) ----------------------
+# predict() works regardless of how the random effects are parameterized
+nd <- expand.grid(participant = unique(cleandata_rt$participant),
+                  condition   = levels(cleandata_rt$condition))
+nd$inv <- predict(rt_model_complex, newdata = nd)
+ 
+slopedata <- nd %>%
+  pivot_wider(names_from = condition, values_from = inv) %>%
+  mutate(Diff_ms = inv_back(error) - inv_back(study))
+ 
+ggplot(slopedata, aes(x = Diff_ms)) +
+  geom_histogram(bins = 15, col = "white") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1) +
+  labs(title = "Distribution of Participant-Level Condition Effects",
+       x = "Predicted RT difference, error - study (ms)",
+       y = "Number of Participants") +
+  theme_minimal()
 ```
 
-## Participants who might be elaborative
-
 ```{r}
-elab <- c("1008","1015", "1032",
-          "1051", "1053", "1061")
-elab_acc <- filter(cleandata, cleandata$participant %in% elab) 
-elab_acc_agg <- elab_acc %>%
+# ---- Participants who might be elaborative ----------------------------------
+elab <- c("1008", "1015", "1032", "1051", "1053", "1061")
+ 
+elab_acc_agg <- cleandata %>%
+  filter(participant %in% elab) %>%
   group_by(participant, condition) %>%
-  summarise(Accuracy = mean(correct))
-
-elab_rt <- filter(cleandata_rt, cleandata_rt$participant %in% elab) 
-elab_rt_agg <- elab_rt %>%
+  summarise(Accuracy = mean(correct), .groups = "drop")
+ 
+elab_rt_agg <- cleandata_rt %>%
+  filter(participant %in% elab) %>%
   group_by(participant, condition) %>%
-  summarise(RT = mean(rt))
-
-
-ggplot(elab_acc_agg, aes(x=condition, y=Accuracy, color=condition)) +
-  geom_line(color="grey", aes(group=participant), size=0.1) +
-  geom_point( alpha=0.5, color="grey") +
-  scale_color_aaas() +
-
-  ggtitle("Mean Differences in Accuracy") +
-  xlab("Condition") +
-  stat_summary(geom="point", fun.data = "mean_se", size=3) +
-  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
-  # geom_text(data=cleandata_summary, 
-  #           aes(x=condition, 
-  #               y=Accuracy, 
-  #               label=paste(round(Accuracy*100, 2), "%")), 
-  #           hjust= c(1.2, -0.2)) +
-
+  summarise(RT = mean(rt), .groups = "drop")
+ 
+# Accuracy (unchanged apart from colors)
+ggplot(elab_acc_agg, aes(x = condition, y = Accuracy, color = condition)) +
+  geom_line(aes(group = participant), color = "grey", linewidth = 0.1) +
+  geom_point(alpha = 0.5, color = "grey") +
+  stat_summary(geom = "point", fun.data = "mean_se", size = 3) +
+  stat_summary(geom = "errorbar", fun.data = "mean_se", width = 0.1) +
+  scale_color_manual(values = cond_colors) +
+  labs(title = "Mean Differences in Accuracy (Elaborative Participants)",
+       x = "Condition") +
   theme_minimal()
-
-ggplot(elab_rt_agg, aes(x=condition, y=RT, color=condition)) +
-  geom_line(color="grey", aes(group=participant), size=0.1) +
-  geom_point(alpha=0.75, color="grey") +
-  scale_color_aaas() +
-
-  ggtitle("Mean Differences in Accuracy") +
-  xlab("Condition") +
-  stat_summary(geom="point", fun.data = "mean_se", size=3) +
-  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
-  # geom_text(data=cleandata_summary, 
-  #           aes(x=condition, 
-  #               y=Accuracy, 
-  #               label=paste(round(Accuracy*100, 2), "%")), 
-  #           hjust= c(1.2, -0.2)) +
-
+ 
+ggplot(elab_rt_agg, aes(x = condition, y = RT, color = condition)) +
+  geom_line(aes(group = participant), color = "grey", linewidth = 0.1) +
+  geom_point(alpha = 0.75, color = "grey") +
+  stat_summary(geom = "point", fun.data = "mean_se", size = 3) +
+  stat_summary(geom = "errorbar", fun.data = "mean_se", width = 0.1) +
+  scale_color_manual(values = cond_colors) +
+  labs(title = "Mean Differences in Response Times (Elaborative Participants)",
+       x = "Condition", y = "Response time (ms)") +
   theme_minimal()
-```
-Some numbers
-
-```{r}
-elab_acc_agg %>%
-  group_by(condition) %>%
-  summarise(#Accuracy = mean(Accuracy), 
-            SD_Accuracy = sd(Accuracy, na.rm=T),
-            Accuracy = mean(Accuracy, na.rm=T)) %>%
-  kable()
 
 elab_rt_agg %>%
   group_by(condition) %>%
-  summarise(#Accuracy = mean(Accuracy), 
-            SD_RT = sd(RT, na.rm=T),
-            RT = mean(RT, na.rm=T)) 
+  summarise(SD_RT = sd(RT, na.rm = TRUE),
+            RT    = mean(RT, na.rm = TRUE)) %>%
+  kable(digits = 0)
+ 
 ```
 
-
 ```{r}
-cleandata_rt <- cleandata_rt %>%
-  mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
-
-cleandata_agg <- cleandata_agg %>%
-  mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
-
-cleandata_rt_agg <- cleandata_rt_agg %>%
-  mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
-
-ggplot(cleandata_rt, aes(x=rt, fill=model)) +
-  geom_density(alpha=0.5, color="white") +
-  scale_fill_manual(values = c("gold3", "purple3")) +
+# ---- Model-assigned groups ---------------------------------------------------
+cleandata_rt  <- cleandata_rt  %>% mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
+cleandata_agg <- cleandata_agg %>% mutate(model = if_else(participant %in% elab, "Elaborative", "Mediator"))
+ 
+cleandata_rt_agg  <- agg_rt_inv(cleandata_rt, model)
+rt_model_summ     <- summ_rt_inv(cleandata_rt_agg, model)
+group_colors      <- c(Elaborative = "gold3", Mediator = "purple3")
+ 
+# Raw RT distributions by group (raw ms is fine here: it's showing the shape)
+ggplot(cleandata_rt, aes(x = rt, fill = model)) +
+  geom_density(alpha = 0.5, color = "white") +
+  scale_fill_manual(values = group_colors) +
+  labs(x = "Response time (ms)") +
   theme_minimal()
-
-ggplot(cleandata_rt_agg, aes(x=condition, y=RT, color=model)) +
-  geom_line(aes(group=participant), size=0.1) +
-  #geom_point(alpha=0.75, color="grey") +
-  scale_color_manual(values = c("gold3", "purple3")) +
-  ggtitle("Mean Differences in Accuracy") +
-  xlab("Condition") +
-  stat_summary(geom="point", fun.data = "mean_se", size=3) +
-  stat_summary(geom="errorbar", fun.data = "mean_se", width=0.1) +
+ 
+ggplot(cleandata_rt_agg, aes(x = condition, y = RT, color = model)) +
+  geom_line(aes(group = participant), linewidth = 0.1) +
+  geom_point(data = rt_model_summ, size = 3) +
+  geom_errorbar(data = rt_model_summ, aes(ymin = lo, ymax = hi), width = 0.1) +
+  scale_color_manual(values = group_colors) +
+  labs(title = "Mean Differences in Response Times by Model Group",
+       x = "Condition", y = "Response time (ms)") +
   theme_minimal()
-```
-
-Summary of behavioral differences between the two model-assigned grouops:
-
-```{r}
+ 
+# Summary of behavioral differences between the two model-assigned groups
 cleandata_agg %>%
   group_by(condition, model) %>%
-  summarise(#Accuracy = mean(Accuracy), 
-            SD_Accuracy = sd(Accuracy, na.rm=T),
-            Accuracy = mean(Accuracy, na.rm=T)) 
-
-cleandata_rt_agg %>%
-  group_by(condition, model) %>%
-  summarise(#Accuracy = mean(Accuracy), 
-            SD_RT = sd(RT, na.rm=T),
-            RT = mean(RT, na.rm=T))
+  summarise(SD_Accuracy = sd(Accuracy, na.rm = TRUE),
+            Accuracy    = mean(Accuracy, na.rm = TRUE),
+            .groups = "drop")
+ 
+rt_model_summ %>%
+  dplyr::select(condition, model, RT, lo, hi)
 ```
+```{r}
+# 1. One row per participant: accuracy (all trials) and RT (correct trials), by condition
+indiv <- cleandata %>%
+  group_by(participant, condition) %>%
+  summarise(acc = mean(correct), .groups = "drop") %>%
+  left_join(cleandata_rt %>%
+              group_by(participant, condition) %>%
+              summarise(rt = mean(rt), .groups = "drop"),
+            by = c("participant", "condition")) %>%
+  mutate(group = if_else(participant %in% elab, "Elaborative", "Mediator")) %>%
+  pivot_wider(names_from = condition, values_from = c(acc, rt))
+
+# 2. z-scores relative to the whole sample, and the pattern flag
+z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+
+rel <- indiv %>%
+  mutate(across(c(acc_study, rt_study, acc_error, rt_error), z, .names = "z_{.col}"),
+         study_worse  = z_acc_study < 0 & z_rt_study > 0,
+         error_normal = abs(z_acc_error) < 1 & abs(z_rt_error) < 1,
+         pattern      = study_worse & error_normal)
+
+# 3. Count and list
+rel %>% count(group, pattern)
+
+rel %>%
+  filter(pattern) %>%
+  dplyr::select(participant, group, acc_study, rt_study, acc_error, rt_error) %>%
+  arrange(group)
+```
+
+Make a visual for LL:
+```{r}
+lldata <- read.csv("LL_model1.csv")
+lldata <- lldata %>% 
+  filter(X != 61)
+```
+
+legend.position = c(0, 1),
+        legend.background = element_rect(fill="white",size=0.2,
+                                         linetype="solid", colour ="lightgrey"),
+        # text = element_text(size=18),
+        # plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 22),
+        plot.title = element_text(size = 26, hjust = 0.5),
+        axis.title.x = element_text(size = 24),
+        axis.title.y = element_text(size = 24),
+        axis.text = element_text(size = 18),
+        strip.text = element_text(size = 18))
+        
+```{r, fig.height=6, fig.width=10}
+mean <- mean(lldata$diff.LL)
+
+elabMean <- lldata %>% 
+  filter(best.model == "Elaborative") %>% 
+  pull(diff.LL) %>% 
+  mean()
+
+ggplot(lldata, aes(x=diff.LL, fill=best.model)) +
+geom_histogram(color="#e9ecef", alpha=0.75, position = 'identity') +
+scale_fill_manual(values=c("#c4a94d", "#9575b3")) +
+geom_vline(xintercept=mean, col="#36454F", linetype="dotted", size=1.2) +
+geom_vline(xintercept=0, col="#36454F", linetype="solid", size=0.7) +
+xlab(expression(log~italic(L(M[Mediator]))~-~log~italic(L(M[Elaborative])))) +
+ylab("Number of Participants")  + 
+labs(fill = "Best-fitting Model") +
+theme_minimal() +
+theme(legend.position = c(0.15, 1), 
+      legend.background = element_rect(fill="white",size=0.5, 
+                                       linetype="solid", colour ="lightgrey"),
+      legend.text = element_text(size = 18),
+      legend.title = element_text(size = 22),
+      axis.title.x = element_text(size = 24),
+      axis.title.y = element_text(size = 24),
+      axis.text = element_text(size = 18),
+      strip.text = element_text(size = 18),
+      panel.grid.major = element_blank(),  # Remove major grid lines
+      panel.grid.minor = element_blank()   # Remove minor grid lines
+)
+
+ggsave('manuscript_visuals/fig5.png', width=10, height=6, bg="white", dpi=300)
+```
+
